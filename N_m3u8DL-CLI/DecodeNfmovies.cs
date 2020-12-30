@@ -5,7 +5,7 @@ using System.Text;
 
 namespace N_m3u8DL_CLI
 {
-    class DecryptNfmovies
+    class DecodeNfmovies
     {
         //https://jx.nfmovies.com/hls.min.js
         public static string DecryptM3u8(byte[] byteArray)

@@ -10,19 +10,20 @@ namespace N_m3u8DL_CLI
 {
     class FFmpeg
     {
-        private static string outPutPath = string.Empty;
-        private static string reportFile = string.Empty;
-        private static bool useAACFilter = false;  //是否启用滤镜
-        private static bool writeDate = true;  //是否写入录制日期
-        public static string OutPutPath { get => outPutPath; set => outPutPath = value; }
-        public static string ReportFile { get => reportFile; set => reportFile = value; }
-        public static bool UseAACFilter { get => useAACFilter; set => useAACFilter = value; }
-        public static bool WriteDate { get => writeDate; set => writeDate = value; }
+        public static string FFMPEG_PATH = "ffmpeg";
+        public static string REC_TIME = ""; //录制日期
+
+        public static string OutPutPath { get; set; } = string.Empty;
+        public static string ReportFile { get; set; } = string.Empty;
+        public static bool UseAACFilter { get; set; } = false;  //是否启用滤镜
+        public static bool WriteDate { get; set; } = true;  //是否写入录制日期
 
         public static void Merge(string[] files, string muxFormat, bool fastStart,
             string poster = "", string audioName = "", string title = "",
             string copyright = "", string comment = "", string encodingTool = "")
         {
+            string dateString = string.IsNullOrEmpty(REC_TIME) ? DateTime.Now.ToString("o") : REC_TIME;
+
             //同名文件已存在的共存策略
             if (File.Exists($"{OutPutPath}.{muxFormat.ToLower()}")) 
             {
@@ -50,7 +51,7 @@ namespace N_m3u8DL_CLI
                     command += " " + (string.IsNullOrEmpty(ddpAudio) ? "" : "-i \"" + ddpAudio + "\"");
                     command +=
                         $" -map 0:v? {(string.IsNullOrEmpty(ddpAudio) ? "-map 0:a?" : $"-map {(string.IsNullOrEmpty(poster) ? "1" : "2")}:a -map 0:a?")} -map 0:s? " + (string.IsNullOrEmpty(poster) ? "" : addPoster)
-                        + (writeDate ? " -metadata date=\"" + DateTime.Now.ToString("o") + "\"" : "") +
+                        + (WriteDate ? " -metadata date=\"" + dateString + "\"" : "") +
                         " -metadata encoding_tool=\"" + encodingTool + "\" -metadata title=\"" + title +
                         "\" -metadata copyright=\"" + copyright + "\" -metadata comment=\"" + comment +
                         $"\" -metadata:s:a:{(string.IsNullOrEmpty(ddpAudio) ? "0" : "1")} handler_name=\"" + audioName + $"\" -metadata:s:a:{(string.IsNullOrEmpty(ddpAudio) ? "0" : "1")} handler=\"" + audioName + "\" ";
@@ -83,7 +84,7 @@ namespace N_m3u8DL_CLI
 
             }
 
-            Run("ffmpeg", command, Path.GetDirectoryName(files[0]));
+            Run(FFMPEG_PATH, command, Path.GetDirectoryName(files[0]));
             LOGGER.WriteLine(strings.ffmpegDone);
             //Console.WriteLine(command);
         }
@@ -92,7 +93,7 @@ namespace N_m3u8DL_CLI
         {
             if (Global.VIDEO_TYPE == "H264")
             {
-                Run("ffmpeg",
+                Run(FFMPEG_PATH,
                     "-loglevel quiet -i \"" + file + "\" -map 0 -c copy -copy_unknown -f mpegts -bsf:v h264_mp4toannexb \""
                     + Path.GetFileNameWithoutExtension(file) + "[MPEGTS].ts\"", 
                     Path.GetDirectoryName(file));
@@ -104,7 +105,7 @@ namespace N_m3u8DL_CLI
             }
             else if (Global.VIDEO_TYPE == "H265")
             {
-                Run("ffmpeg",
+                Run(FFMPEG_PATH,
                     "-loglevel quiet -i \"" + file + "\" -map 0 -c copy -copy_unknown -f mpegts -bsf:v hevc_mp4toannexb \""
                     + Path.GetFileNameWithoutExtension(file) + "[MPEGTS].ts\"",
                     Path.GetDirectoryName(file));
