@@ -32,7 +32,7 @@ namespace N_m3u8DL_CLI
         /*===============================================================================*/
         static Version ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         static string nowVer = $"{ver.Major}.{ver.Minor}.{ver.Build}";
-        static string nowDate = "20201229";
+        static string nowDate = "20210201";
         public static void WriteInit()
         {
             Console.Clear();
@@ -539,6 +539,10 @@ namespace N_m3u8DL_CLI
                         request.Referer = "https://www.mgtv.com";
                     request.Headers.Add("Cookie", "MQGUID");
                 }
+                else if (url.Contains(".xboku.com/")) //独播库
+                {
+                    request.Referer = "https://my.duboku.vip/static/player/videojs.html";
+                }
                 else
                     request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36";
                 //下载部分字节
@@ -664,13 +668,13 @@ namespace N_m3u8DL_CLI
             }
             else if (137 == u[0] && 80 == u[1] && 78 == u[2] && 71 == u[3])
             {
-                //确定是PNG但是需要手动查询结尾标记(0x60 0x82 0x47)
+                //确定是PNG但是需要手动查询结尾标记 0x47 出现两次
                 int skip = 0;
-                for (int i = 4; i < u.Length - 3; i++)
+                for (int i = 4; i < u.Length - 188 * 2; i++)
                 {
-                    if (u[i] == 0x60 && u[i + 1] == 0x82 && u[i + 2] == 0x47)
+                    if (u[i] == 0x47 && u[i + 188] == 0x47 && u[i + 188 + 188] == 0x47)
                     {
-                        skip = i + 2;
+                        skip = i;
                         break;
                     }
                 }
