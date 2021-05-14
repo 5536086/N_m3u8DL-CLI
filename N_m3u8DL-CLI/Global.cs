@@ -24,15 +24,17 @@ namespace N_m3u8DL_CLI
         public static string AUDIO_TYPE = "";
         public static bool HadReadInfo = false;
         private static bool noProxy = false;
+        private static string useProxyAddress = "";
 
         public static bool ShouldStop { get => shouldStop; set => shouldStop = value; }
         public static bool NoProxy { get => noProxy; set => noProxy = value; }
+        public static string UseProxyAddress { get => useProxyAddress; set => useProxyAddress = value; }
 
 
         /*===============================================================================*/
         static Version ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         static string nowVer = $"{ver.Major}.{ver.Minor}.{ver.Build}";
-        static string nowDate = "20210201";
+        static string nowDate = "20210325";
         public static void WriteInit()
         {
             Console.Clear();
@@ -102,14 +104,23 @@ namespace N_m3u8DL_CLI
         public static string GetWebSource(String url, string headers = "", int TimeOut = 60000)
         {
             string htmlCode = string.Empty;
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 5; i++)
             {
                 try
                 {
                 reProcess:
                     HttpWebRequest webRequest = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
                     webRequest.Method = "GET";
-                    if (NoProxy) webRequest.Proxy = null;
+                    if (NoProxy)
+                    {
+                        webRequest.Proxy = null;
+                    }
+                    else if (UseProxyAddress != "")
+                    {
+                        WebProxy proxy = new WebProxy(UseProxyAddress);
+                        //proxy.Credentials = new NetworkCredential(username, password);
+                        webRequest.Proxy = proxy;
+                    }
                     webRequest.UserAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36";
                     webRequest.Accept = "*/*";
                     webRequest.Headers.Add("Accept-Encoding", "gzip, deflate, br");
@@ -198,6 +209,7 @@ namespace N_m3u8DL_CLI
                 }
                 catch (Exception e)  //捕获所有异常
                 {
+                    LOGGER.WriteLine(e.Message);
                     LOGGER.WriteLineError(e.Message);
                     Thread.Sleep(1000); //1秒后重试
                     continue;
@@ -370,7 +382,16 @@ namespace N_m3u8DL_CLI
                 string redirectUrl;
                 WebRequest myRequest = WebRequest.Create(url);
                 myRequest.Timeout = timeout;
-                if (NoProxy) myRequest.Proxy = null;
+                if (NoProxy)
+                {
+                    myRequest.Proxy = null;
+                }
+                else if (UseProxyAddress != "")
+                {
+                    WebProxy proxy = new WebProxy(UseProxyAddress);
+                    //proxy.Credentials = new NetworkCredential(username, password);
+                    myRequest.Proxy = proxy;
+                }
                 //添加headers
                 if (headers != "")
                 {
@@ -424,7 +445,16 @@ namespace N_m3u8DL_CLI
             req.Timeout = timeOut;
             req.ReadWriteTimeout = timeOut; //重要
             req.AllowAutoRedirect = false; //手动处理重定向，否则会丢失Referer
-            if (NoProxy) req.Proxy = null;
+            if (NoProxy)
+            {
+                req.Proxy = null;
+            }
+            else if (UseProxyAddress != "")
+            {
+                WebProxy proxy = new WebProxy(UseProxyAddress);
+                //proxy.Credentials = new NetworkCredential(username, password);
+                req.Proxy = proxy;
+            }
             req.Headers.Add("Accept-Encoding", "gzip, deflate");
             req.Accept = "*/*";
             req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36";
@@ -515,6 +545,8 @@ namespace N_m3u8DL_CLI
         /// </summary>
         public static void HttpDownloadFile(string url, string path, int timeOut = 20000, string headers = "", long startByte = 0, long expectByte = -1)
         {
+            int retry = 0;
+            reDownload:
             try
             {
                 if (File.Exists(path))
@@ -529,7 +561,16 @@ namespace N_m3u8DL_CLI
                 request.AllowAutoRedirect = false; //手动处理重定向，否则会丢失Referer
                 request.KeepAlive = false;
                 request.Method = "GET";
-                if (NoProxy) request.Proxy = null;
+                if (NoProxy)
+                {
+                    request.Proxy = null;
+                }
+                else if (UseProxyAddress != "")
+                {
+                    WebProxy proxy = new WebProxy(UseProxyAddress);
+                    //proxy.Credentials = new NetworkCredential(username, password);
+                    request.Proxy = proxy;
+                }
                 if (url.Contains("data.video.iqiyi.com"))
                     request.UserAgent = "QYPlayer/Android/4.4.5;NetType/3G;QTP/1.1.4.3";
                 else if (url.Contains("pcvideo") && url.Contains(".titan.mgtv.com"))
@@ -636,6 +677,12 @@ namespace N_m3u8DL_CLI
             {
                 LOGGER.WriteLineError("DOWN: " + e.Message + " " + url);
                 try { File.Delete(path); } catch (Exception) { }
+                if (retry++ < 3)
+                {
+                    Thread.Sleep(1000);
+                    LOGGER.WriteLineError($"DOWN: AUTO RETRY {retry}/3 " + url);
+                    goto reDownload;
+                }
             }
         }
 
@@ -1110,7 +1157,16 @@ namespace N_m3u8DL_CLI
             protected override WebRequest GetWebRequest(Uri address)
             {
                 var wr = (HttpWebRequest)base.GetWebRequest(address);
-                if (NoProxy) wr.Proxy = null;
+                if (NoProxy)
+                {
+                    wr.Proxy = null;
+                }
+                else if (UseProxyAddress != "")
+                {
+                    WebProxy proxy = new WebProxy(UseProxyAddress);
+                    //proxy.Credentials = new NetworkCredential(username, password);
+                    wr.Proxy = proxy;
+                }
                 if (setRange)
                     wr.AddRange(this.from, this.to);
                 if (setTimeout)

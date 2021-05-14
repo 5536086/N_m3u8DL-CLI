@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -526,12 +527,10 @@ namespace N_m3u8DL_CLI
                     Console.WriteLine("".PadRight(13) + $"[{i.ToString().PadLeft(2)}]. {Stringify(formatList[i])}");
                     LOGGER.CursorIndex++;
                 }
-                Console.CursorVisible = true;
                 LOGGER.PrintLine("Found Multiple Language Audio Tracks.\r\n" + "".PadRight(13) + "Please Select What You Want(Up to 1 Video and 1 Audio).");
                 Console.Write("".PadRight(13) + "Enter Numbers Separated By A Space: ");
                 var input = Console.ReadLine();
                 LOGGER.CursorIndex += 2;
-                Console.CursorVisible = false;
                 for (int i = startCursorIndex; i < LOGGER.CursorIndex; i++)
                 {
                     Console.SetCursorPosition(0, i);
@@ -613,7 +612,7 @@ namespace N_m3u8DL_CLI
             }
 
             var content = "";
-            if (videoPath == "" && audioPath != "")
+            if ((videoPath == "" && audioPath != "") || Global.VIDEO_TYPE == "IGNORE")
             {
                 return audioPath;
             }
@@ -674,8 +673,41 @@ namespace N_m3u8DL_CLI
             }
             sb.AppendLine("#EXT-X-KEY:METHOD=PLZ-KEEP-RAW,URI=\"None\""); //使下载器使用二进制合并
 
+            List<Dictionary<string, dynamic>> fragments = f["Fragments"];
+
+            //检测最后一片的有效性
+            if (fragments.Count > 1)
+            {
+                bool checkValid(string url)
+                {
+                    try
+                    {
+                        HttpWebRequest request = (HttpWebRequest)HttpWebRequest.Create(new Uri(url));
+                        request.Timeout = 120000;
+                        HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+                        if (((int)response.StatusCode).ToString().StartsWith("2")) return true;
+                        else return false;
+                    }
+                    catch (Exception) { return false; }
+                }
+
+                var last = fragments.Last();
+                var secondToLast = fragments[fragments.Count - 2];
+                var urlLast = last.ContainsKey("url") ? last["url"] : last["path"];
+                var urlSecondToLast = secondToLast.ContainsKey("url") ? secondToLast["url"] : secondToLast["path"];
+                //普通分段才判断
+                if (urlLast.StartsWith("http") && !Regex.IsMatch(urlLast, "\\$\\$Range=(\\d+)-(\\d+)"))
+                {
+                    LOGGER.PrintLine(strings.checkingLast + (f["ContentType"] != "audio" ? "(Video)" : "(Audio)"));
+                    LOGGER.WriteLine(strings.checkingLast + (f["ContentType"] != "audio" ? "(Video)" : "(Audio)"));
+                    //倒数第二段正常，倒数第一段不正常
+                    if (checkValid(urlSecondToLast) && !checkValid(urlLast))
+                        fragments.RemoveAt(fragments.Count - 1);
+                }
+            }
+
             //添加分段
-            foreach (var seg in f["Fragments"])
+            foreach (var seg in fragments)
             {
                 var dur = seg.ContainsKey("duration") ? seg["duration"] : 0.0;
                 var url = seg.ContainsKey("url") ? seg["url"] : seg["path"];
